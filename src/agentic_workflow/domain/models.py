@@ -1,6 +1,7 @@
 """Domain models, value objects, and evaluation contracts."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 from pydantic import BaseModel, Field
@@ -14,6 +15,29 @@ class ExecutionStatus(str, Enum):
     SUCCESS = "SUCCESS"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+class NodeStatus(str, Enum):
+    """Micro-lifecycle status for an individual node execution."""
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    EVALUATING = "EVALUATING"
+    WAITING_EXTERNAL = "WAITING_EXTERNAL"
+    RETRYING = "RETRYING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
+
+class NodeExecutionRecord(BaseModel):
+    """Audit trail record of a single node execution."""
+    node_name: str
+    status: NodeStatus
+    duration_ms: float
+    started_at: datetime
+    completed_at: datetime
+    attempt: int = 1
+    error_message: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class DoDResult(BaseModel):

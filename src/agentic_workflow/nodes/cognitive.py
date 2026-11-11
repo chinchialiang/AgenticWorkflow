@@ -4,11 +4,11 @@ import logging
 from typing import Any, Callable, Optional, Type
 from pydantic import BaseModel, ValidationError
 
-from agentic_workflow.domain.models import DoDResult, ExecutionStatus, WorkflowMessage
+from agentic_workflow.domain.models import DoDResult, ExecutionStatus, NodeStatus, WorkflowMessage
 from agentic_workflow.domain.state import AgentWorkflowState
 from agentic_workflow.nodes.base import GraphNode
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("agentic_workflow.nodes.cognitive")
 
 
 class CognitiveNode(GraphNode[AgentWorkflowState]):
@@ -17,7 +17,7 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
     - Skills: Scoped tool registry for this node
     - DoD (Definition of Done): Formal Pydantic schema contract
     - Eval: Dual-stage validation (deterministic schema + semantic DoD check)
-    - Self-correction retry loop
+    - Self-correction retry loop with lifecycle state transitions
     """
 
     def __init__(
@@ -38,33 +38,38 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
         self.dod_evaluator = dod_evaluator
         self.max_self_retries = max_self_retries
 
-    async def execute(self, state: AgentWorkflowState) -> dict[str, Any]:
+    async def _on_execute(self, state: AgentWorkflowState) -> dict[str, Any]:
         messages = list(state.get("messages") or [])
         feedback_notes: list[str] = []
 
         for attempt in range(self.max_self_retries + 1):
-            logger.info("Executing CognitiveNode '%s' (attempt %d/%d)", self.name, attempt + 1, self.max_self_retries + 1)
-
             # 1. Compile prompt with feedback if retrying
             augmented_prompt = self.system_prompt
             if feedback_notes:
+                self._transition_to(
+                    NodeStatus.RETRYING,
+                    attempt=attempt + 1,
+                    max_retries=self.max_self_retries,
+                    reasons=feedback_notes,
+                    message=f"Node '{self.name}' retrying with evaluation feedback.",
+                )
                 augmented_prompt += "\n\n[Evaluation Feedback from Previous Attempt]:\n" + "\n".join(feedback_notes)
 
             # 2. Invoke LLM
             raw_response = await self._invoke_llm(augmented_prompt, messages)
 
             # 3. Stage 1 Eval: Deterministic Schema Validation
+            self._transition_to(NodeStatus.EVALUATING, stage="schema_validation", attempt=attempt + 1)
             parsed_output, parse_error = self._validate_schema(raw_response)
             if parse_error:
-                logger.warning("Stage 1 Eval failed for node '%s': %s", self.name, parse_error)
                 feedback_notes.append(f"Schema Validation Error: {parse_error}. Please adhere strictly to the schema.")
                 continue
 
             # 4. Stage 2 Eval: Semantic Definition of Done (DoD) Evaluation
             if self.dod_evaluator and parsed_output is not None:
+                self._transition_to(NodeStatus.EVALUATING, stage="dod_semantic_eval", attempt=attempt + 1)
                 dod_result = self.dod_evaluator(parsed_output, state)
                 if not dod_result.is_met:
-                    logger.warning("Stage 2 Eval (DoD) failed for node '%s': %s", self.name, dod_result.feedback)
                     feedback_notes.extend(dod_result.feedback)
                     continue
 
@@ -78,7 +83,12 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
             }
 
         # Exhausted retries without meeting DoD
-        logger.error("Node '%s' failed to satisfy DoD after %d attempts", self.name, self.max_self_retries + 1)
+        self._transition_to(
+            NodeStatus.FAILED,
+            attempt=self.max_self_retries + 1,
+            reasons=feedback_notes,
+            message=f"Node '{self.name}' exhausted all {self.max_self_retries + 1} attempts.",
+        )
         return {
             "execution_status": ExecutionStatus.FAILED,
             "error_message": f"Node '{self.name}' failed to meet DoD after {self.max_self_retries + 1} attempts.",
@@ -87,7 +97,6 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
         }
 
     async def _invoke_llm(self, prompt: str, messages: list[WorkflowMessage]) -> Any:
-        # Calls the injected LLM invoker (can be async or sync)
         import inspect
         res = self.llm_invoker(prompt, messages, self.skills)
         if inspect.isawaitable(res):

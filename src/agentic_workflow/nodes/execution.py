@@ -4,13 +4,13 @@ import asyncio
 import inspect
 import logging
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
-from agentic_workflow.domain.models import ExecutionStatus, ToolResult, WorkflowMessage
+from agentic_workflow.domain.models import ExecutionStatus, NodeStatus, ToolResult, WorkflowMessage
 from agentic_workflow.domain.state import AgentWorkflowState
 from agentic_workflow.nodes.base import GraphNode
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("agentic_workflow.nodes.execution")
 
 
 class ToolExecutionNode(GraphNode[AgentWorkflowState]):
@@ -19,6 +19,7 @@ class ToolExecutionNode(GraphNode[AgentWorkflowState]):
     - Error isolation: Catches exceptions and returns standardized ToolResult.
     - Idempotency support: Respects idempotency keys on write commands.
     - Timeout protection: Prevents hanging external dependencies.
+    - Lifecycle observability: Emits WAITING_EXTERNAL during outbound I/O.
     """
 
     def __init__(
@@ -33,13 +34,19 @@ class ToolExecutionNode(GraphNode[AgentWorkflowState]):
         self.timeout_seconds = timeout_seconds
         self.is_mutating_command = is_mutating_command
 
-    async def execute(self, state: AgentWorkflowState) -> dict[str, Any]:
+    async def _on_execute(self, state: AgentWorkflowState) -> dict[str, Any]:
         tool_call = state.get("pending_tool_call") or {}
         tool_args = tool_call.get("arguments", {})
         idempotency_key = tool_call.get("idempotency_key")
 
         start_time = time.perf_counter()
-        logger.info("Executing ToolNode '%s' with args: %s", self.name, list(tool_args.keys()))
+        self._transition_to(
+            NodeStatus.WAITING_EXTERNAL,
+            tool_name=self.name,
+            timeout_seconds=self.timeout_seconds,
+            is_mutating=self.is_mutating_command,
+            message=f"Node '{self.name}' waiting for external tool execution.",
+        )
 
         try:
             # Execute with timeout protection
@@ -65,7 +72,6 @@ class ToolExecutionNode(GraphNode[AgentWorkflowState]):
 
         except asyncio.TimeoutError:
             duration_ms = (time.perf_counter() - start_time) * 1000
-            logger.error("Tool '%s' timed out after %.1fs", self.name, self.timeout_seconds)
             result = ToolResult(
                 tool_name=self.name,
                 status=ExecutionStatus.FAILED,
@@ -76,7 +82,6 @@ class ToolExecutionNode(GraphNode[AgentWorkflowState]):
 
         except Exception as exc:  # pylint: disable=broad-except
             duration_ms = (time.perf_counter() - start_time) * 1000
-            logger.exception("Tool '%s' failed with error: %s", self.name, exc)
             result = ToolResult(
                 tool_name=self.name,
                 status=ExecutionStatus.FAILED,

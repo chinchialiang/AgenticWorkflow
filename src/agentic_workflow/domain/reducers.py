@@ -1,7 +1,7 @@
 """Deterministic state reducers (CQRS event-sourcing style)."""
 
 from typing import Any, Sequence
-from agentic_workflow.domain.models import WorkflowMessage
+from agentic_workflow.domain.models import NodeExecutionRecord, WorkflowMessage
 
 
 def append_messages(
@@ -15,6 +15,19 @@ def append_messages(
     if isinstance(new_messages, WorkflowMessage):
         return base + [new_messages]
     return base + list(new_messages)
+
+
+def append_execution_record(
+    current: Sequence[NodeExecutionRecord] | None,
+    new_records: Sequence[NodeExecutionRecord] | NodeExecutionRecord | None,
+) -> list[NodeExecutionRecord]:
+    """Pure reducer that appends node audit records to the execution history."""
+    base = list(current or [])
+    if new_records is None:
+        return base
+    if isinstance(new_records, NodeExecutionRecord):
+        return base + [new_records]
+    return base + list(new_records)
 
 
 def increment_counter(current: int | None, increment_by: int = 1) -> int:

@@ -12,3 +12,5 @@ This directory contains the foundational architectural blueprints, enterprise me
    - Specification and lifecycles of `CognitiveNode` (System Prompt, Skills, DoD, Eval) and `ExecutionNode` (API & Sandbox).
 4. [04. Memory Architecture: Short-Term vs. Long-Term](04-memory-architecture.md)
    - Architectural distinction and interaction between Short-Term State (Checkpointer) and Long-Term Memory (Store).
+5. [05. Node Lifecycle State Machine and Observability](05-node-lifecycle-and-observability.md)
+   - Template Method Pattern, NodeStatus state transitions, structured JSON audit logs, and in-state execution history.
