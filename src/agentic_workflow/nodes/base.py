@@ -14,6 +14,11 @@ logger = logging.getLogger("agentic_workflow.nodes")
 
 TState = TypeVar("TState")
 
+try:
+    from langchain_core.runnables import RunnableConfig
+except ImportError:
+    RunnableConfig = Any  # type: ignore
+
 
 class GraphNode(ABC, Generic[TState]):
     """Abstract base class for all nodes enforcing lifecycle logging,
@@ -30,11 +35,15 @@ class GraphNode(ABC, Generic[TState]):
         """Injects or configures the event broker."""
         self.event_broker = broker
 
-    async def __call__(self, state: TState) -> dict[str, Any]:
+    async def __call__(self, state: TState, config: Optional[RunnableConfig] = None) -> dict[str, Any]:
         """Template Method: Governs entering, executing, exiting, and event publishing."""
-        # Extract thread_id if available in state
-        if isinstance(state, dict):
-            self._current_thread_id = str(state.get("thread_id", "default"))
+        # Extract thread_id if available in state or LangGraph config
+        if isinstance(state, dict) and state.get("thread_id"):
+            self._current_thread_id = str(state["thread_id"])
+        elif config and isinstance(config, dict):
+            cfg = config.get("configurable", {})
+            if "thread_id" in cfg:
+                self._current_thread_id = str(cfg["thread_id"])
 
         start_perf = time.perf_counter()
         started_at = datetime.now(timezone.utc)

@@ -24,6 +24,7 @@ class AgentWorkflowState(TypedDict, total=False):
     artifacts: Annotated[dict[str, Any], merge_dicts]
 
     # --- 2. Workflow Control State (FSM guards, engine telemetry & audit trail) ---
+    thread_id: str
     execution_status: ExecutionStatus
     step_count: Annotated[int, increment_counter]
     max_steps: int
