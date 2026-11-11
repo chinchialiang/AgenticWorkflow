@@ -10,3 +10,5 @@ This directory contains the foundational architectural blueprints, enterprise me
    - Detailed architectural breakdown across Workflow, Cognition, Memory, Tools, HITL, and Resilience.
 3. [03. Node Taxonomy and Design](03-node-taxonomy-and-design.md)
    - Specification and lifecycles of `CognitiveNode` (System Prompt, Skills, DoD, Eval) and `ExecutionNode` (API & Sandbox).
+4. [04. Memory Architecture: Short-Term vs. Long-Term](04-memory-architecture.md)
+   - Architectural distinction and interaction between Short-Term State (Checkpointer) and Long-Term Memory (Store).
