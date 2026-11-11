@@ -46,7 +46,7 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
             # 1. Compile prompt with feedback if retrying
             augmented_prompt = self.system_prompt
             if feedback_notes:
-                self._transition_to(
+                await self._transition_to(
                     NodeStatus.RETRYING,
                     attempt=attempt + 1,
                     max_retries=self.max_self_retries,
@@ -59,7 +59,7 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
             raw_response = await self._invoke_llm(augmented_prompt, messages)
 
             # 3. Stage 1 Eval: Deterministic Schema Validation
-            self._transition_to(NodeStatus.EVALUATING, stage="schema_validation", attempt=attempt + 1)
+            await self._transition_to(NodeStatus.EVALUATING, stage="schema_validation", attempt=attempt + 1)
             parsed_output, parse_error = self._validate_schema(raw_response)
             if parse_error:
                 feedback_notes.append(f"Schema Validation Error: {parse_error}. Please adhere strictly to the schema.")
@@ -67,7 +67,7 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
 
             # 4. Stage 2 Eval: Semantic Definition of Done (DoD) Evaluation
             if self.dod_evaluator and parsed_output is not None:
-                self._transition_to(NodeStatus.EVALUATING, stage="dod_semantic_eval", attempt=attempt + 1)
+                await self._transition_to(NodeStatus.EVALUATING, stage="dod_semantic_eval", attempt=attempt + 1)
                 dod_result = self.dod_evaluator(parsed_output, state)
                 if not dod_result.is_met:
                     feedback_notes.extend(dod_result.feedback)
@@ -83,7 +83,7 @@ class CognitiveNode(GraphNode[AgentWorkflowState]):
             }
 
         # Exhausted retries without meeting DoD
-        self._transition_to(
+        await self._transition_to(
             NodeStatus.FAILED,
             attempt=self.max_self_retries + 1,
             reasons=feedback_notes,

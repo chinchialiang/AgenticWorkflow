@@ -40,7 +40,7 @@ class ToolExecutionNode(GraphNode[AgentWorkflowState]):
         idempotency_key = tool_call.get("idempotency_key")
 
         start_time = time.perf_counter()
-        self._transition_to(
+        await self._transition_to(
             NodeStatus.WAITING_EXTERNAL,
             tool_name=self.name,
             timeout_seconds=self.timeout_seconds,

@@ -14,3 +14,5 @@ This directory contains the foundational architectural blueprints, enterprise me
    - Architectural distinction and interaction between Short-Term State (Checkpointer) and Long-Term Memory (Store).
 5. [05. Node Lifecycle State Machine and Observability](05-node-lifecycle-and-observability.md)
    - Template Method Pattern, NodeStatus state transitions, structured JSON audit logs, and in-state execution history.
+6. [06. Event-Driven Listener, Dashboard Telemetry, and Decoupled Streaming](06-event-listener-and-streaming.md)
+   - EventBroker (Ports & Adapters), in-memory async broker, NodeStateStreamListener (SSE/WebSocket), DashboardTelemetryListener, and 6 advanced enterprise applications.

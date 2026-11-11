@@ -3,6 +3,7 @@
 import logging
 from typing import Any, Callable, Dict, Optional
 
+from agentic_workflow.core.events import EventBroker
 from agentic_workflow.domain.state import AgentWorkflowState
 from agentic_workflow.nodes.base import GraphNode
 
@@ -12,16 +13,27 @@ logger = logging.getLogger(__name__)
 class WorkflowGraphBuilder:
     """Builder for assembling the state machine topology.
     Can export to LangGraph StateGraph or run via internal executor.
+    Supports injecting EventBrokers to all registered nodes.
     """
 
-    def __init__(self):
+    def __init__(self, event_broker: Optional[EventBroker] = None):
         self.nodes: Dict[str, GraphNode[AgentWorkflowState]] = {}
         self.entry_point: Optional[str] = None
         self.edges: list[tuple[str, str]] = []
         self.conditional_edges: list[tuple[str, Callable[[AgentWorkflowState], str], dict[str, str]]] = []
+        self.event_broker: Optional[EventBroker] = event_broker
+
+    def set_event_broker(self, broker: EventBroker) -> "WorkflowGraphBuilder":
+        """Configures or updates the event broker for all nodes."""
+        self.event_broker = broker
+        for node in self.nodes.values():
+            node.set_event_broker(broker)
+        return self
 
     def add_node(self, node: GraphNode[AgentWorkflowState]) -> "WorkflowGraphBuilder":
-        """Registers a typed node."""
+        """Registers a typed node and attaches event broker if present."""
+        if self.event_broker:
+            node.set_event_broker(self.event_broker)
         self.nodes[node.name] = node
         return self
 
