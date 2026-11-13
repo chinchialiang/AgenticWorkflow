@@ -4,7 +4,11 @@ Node lifecycle logging, and Event Listener observability.
 
 import asyncio
 import logging
+from pathlib import Path
 import sys
+
+# Ensure 'src' is in sys.path when running script directly
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from agentic_workflow.core.events import WorkflowEvent, WorkflowEventType
 from agentic_workflow.core.graph import WorkflowGraphBuilder

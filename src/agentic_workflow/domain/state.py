@@ -8,6 +8,7 @@ from agentic_workflow.domain.reducers import (
     append_execution_record,
     append_messages,
     increment_counter,
+    last_value,
     merge_dicts,
 )
 
@@ -25,12 +26,12 @@ class AgentWorkflowState(TypedDict, total=False):
 
     # --- 2. Workflow Control State (FSM guards, engine telemetry & audit trail) ---
     thread_id: str
-    execution_status: ExecutionStatus
+    execution_status: Annotated[ExecutionStatus, last_value]
     step_count: Annotated[int, increment_counter]
     max_steps: int
     requires_approval: bool
-    current_node: str
-    error_message: str | None
+    current_node: Annotated[str, last_value]
+    error_message: Annotated[str | None, last_value]
     node_execution_history: Annotated[Sequence[NodeExecutionRecord], append_execution_record]
 
     # --- 3. Transient Scratchpad (Cleared or compacted across phases) ---

@@ -1,7 +1,9 @@
 """Deterministic state reducers (CQRS event-sourcing style)."""
 
-from typing import Any, Sequence
+from typing import Any, Sequence, TypeVar
 from agentic_workflow.domain.models import NodeExecutionRecord, WorkflowMessage
+
+T = TypeVar("T")
 
 
 def append_messages(
@@ -41,3 +43,8 @@ def merge_dicts(current: dict[str, Any] | None, update: dict[str, Any] | None) -
     if update:
         result.update(update)
     return result
+
+
+def last_value(current: T, update: T) -> T:
+    """Pure reducer implementing Last-Write-Wins semantics for concurrent updates."""
+    return update
