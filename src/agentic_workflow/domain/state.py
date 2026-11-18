@@ -26,6 +26,8 @@ class AgentWorkflowState(TypedDict, total=False):
 
     # --- 2. Workflow Control State (FSM guards, engine telemetry & audit trail) ---
     thread_id: str
+    tenant_id: str
+    trace_id: str
     execution_status: Annotated[ExecutionStatus, last_value]
     step_count: Annotated[int, increment_counter]
     max_steps: int

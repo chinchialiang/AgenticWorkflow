@@ -64,3 +64,20 @@ class WorkflowMessage:
     content: str
     name: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class LLMUsage(BaseModel):
+    """Standardized token and cost telemetry returned by LLM invokers."""
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
+    cached_tokens: int = Field(default=0, ge=0)
+    total_tokens: int = Field(default=0, ge=0)
+    cost_usd: float = Field(default=0.0, ge=0.0)
+    model_id: Optional[str] = None
+
+
+class LLMResponse(BaseModel):
+    """Normalized response envelope from an LLM gateway invoker."""
+    content: Any
+    usage: LLMUsage = Field(default_factory=LLMUsage)
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
